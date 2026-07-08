@@ -1,0 +1,339 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<title>ふれあびタグツール</title>
+<link rel="icon" type="image/png"
+href="画像ども/ふぁびこん2">
+
+<link href="https://fonts.googleapis.com/css2?family=Zen+Maru+Gothic:wght@400;700&display=swap" rel="stylesheet">
+
+<style>
+body {
+  font-family: 'Zen Maru Gothic', sans-serif;
+  font-size: 15px;
+  background-color: #000000;
+  margin: 20px;
+  position: relative;
+  z-index: 1;
+  color: #ffffff;
+}
+
+body::before {
+  content: "";
+  position: fixed;
+  inset: 0;
+  background: url("画像ども/はいけい2") center center / cover no-repeat;
+  opacity: 0.75;
+  z-index: -1;
+}
+
+fieldset {
+  border: 1px solid #444;
+  border-radius: 10px;
+  padding: 10px 12px;
+  margin-bottom: 12px;
+  background: rgba(0,0,0,0.6);
+}
+
+legend {
+  font-weight: 700;
+  color: #ffffff;
+}
+
+fieldset label {
+  display: inline-block;
+  margin-right: 12px;
+  margin-bottom: 4px;
+  white-space: nowrap;
+}
+
+textarea {
+  width: 800px;
+  border-radius: 8px;
+  padding: 6px;
+  border: 1px solid #555;
+  background: rgba(0,0,0,0.7);
+  color: #ffffff;
+  font-family: 'Zen Maru Gothic', sans-serif;
+}
+
+button {
+  font-family: 'Zen Maru Gothic', sans-serif;
+  padding: 6px 16px;
+  cursor: pointer;
+  border-radius: 20px;
+  border: 1px solid #666;
+  background: #ffffff;
+  color: #000000;
+  margin-right: 10px;
+}
+
+button:hover {
+  background: #f0f0f0;
+}
+
+#result {
+  margin-top: 10px;
+  padding: 10px;
+  border: 1px solid #444;
+  border-radius: 8px;
+  background: rgba(0,0,0,0.7);
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+#result span {
+  white-space: nowrap;
+}
+
+#result .mainTextSpan {
+  white-space: pre-wrap;
+  word-break: break-word;
+  max-width: 100%;
+}
+
+.redTag {
+  color: #ff4444;
+  font-weight: 700;
+}
+
+.hiddenTag {
+  display: none;
+}
+</style>
+</head>
+
+<body>
+
+<h2>
+ふれあびタグツール
+<label style="margin-left:20px; font-size:14px;">
+<input type="checkbox" id="expertMode">
+エキスパートモード
+</label>
+</h2>
+
+<textarea id="mainText" rows="3" placeholder="本文を入力"></textarea>
+<br><br>
+
+<div id="tagArea"></div>
+
+<br>
+<button onclick="generate()">生成</button>
+<button onclick="copyResult()">コピー</button>
+
+<h3>結果</h3>
+<div id="result"></div>
+
+<script>
+
+/* ===== エキスパート赤タグ ===== */
+const RED_TAGS = new Set([
+"【仮殺害系】","【身代わり系】","【自己蘇生系】","【殺害軌道変更系】",
+"【干渉系】","【道連れ系】","【複数回殺害系】","【確率系】","【反転系】",
+"【アビ能力発動確認系】","【確率操作系】","【アビ能力感知系】","【補助系】",
+"【強制使用可能系】","【失踪系】","【口封系】","【隠しイベント発生系】",
+"【感受性発動】","【2回きり】","【3回きり】","【状態異常回復系】",
+"【感受性弱体化】","【感受性発動不可】"
+]);
+
+/* ===== タグ構成（絶対に変更していない） ===== */
+const TAG_ROWS = [
+{ title:"発動タイプ", tags:[
+"【自動発動】","【必須発動】","【任意発動】","【トリガー発動】","【陣営別発動】",
+"【感受性発動】","【生存時発動】","【死亡時発動】",
+"【蘇生時発動】","【感受性発動不可】","【永久発動】"
+]},
+{ title:"依存系", tags:["【投票依存系】"]},
+{ title:"発動タイミング", tags:["【昼時間発動可能】","【夜時間発動可能】"]},
+{ title:"回数制限", tags:["【1回きり】","【2回きり】","【3回きり】","【回数制限あり】","【強制使用可能系】"]},
+{ title:"攻撃・干渉系", tags:[
+"【殺害系】","【仮殺害系】","【複数回殺害系】","【抹消系】",
+"【道連れ系】","【自滅系】","【失踪系】","【蘇生系】",
+"【自己蘇生系】","【補助系】","【ジャッジメント系】",
+"【感受性弱体化】","【護衛系】","【貫通系】",
+"【妨害系】","【口封系】","【干渉系】","【確率系】","【確率操作系】"
+]},
+{ title:"耐性・防御系", tags:[
+"【身代わり系】","【回避系】","【死亡耐性系】","【無効化系】",
+"【カウンター系】","【殺害軌道変更系】","【反転系】","【蘇生不可】"
+]},
+{ title:"情報系", tags:[
+"【サーチ系】","【アビ能力把握系】","【役職把握系】","【陣営把握系】",
+"【アビ能力発動確認系】","【アビ能力感知系】"
+]},
+{ title:"通知系", tags:["【ログ表示系】","【通達系】"]},
+{ title:"状態異常", tags:["【状態異常付与系】","【状態異常回復系】"]},
+{ title:"ルール操作", tags:["【ルール追加系】","【ルール除外系】","【ルール無視系】"]},
+{ title:"領域系", tags:["【領域展開】"]},
+{ title:"能力操作", tags:[
+"【アビ能力追加付与系】","【アビ能力変化系】","【隠しアビ能力追加付与系】",
+"【隠しアビ能力変化系】","【NEOシークレットアビ能力追加付与系】",
+"【NEOシークレットアビ能力変化系】","【alphaアビ能力追加付与系】",
+"【alphaアビ能力変化系】","【サブアビ能力付与系】",
+"【Perk ticket】","【EXTRΛBILITY GATE】","【奪取系】","【剥奪系】",
+"【サブアビ能力】","【EXTRΛBILITY】"
+]},
+{ title:"イベント", tags:["【イベント発生系】","【隠しイベント発生系】"]},
+{ title:"時間関与", tags:["【時間関与系】"]},
+{ title:"クールタイム", tags:["【CT系】"]},
+{ title:"属性", tags:["【なりきり系】","【ネタ系】","【実験体】","【恋愛系】","【加護系】","【模倣者】","【X00】"]},
+{ title:"優先度", tags:["【優先度最上位】","【優先度上位】","【優先度高】"]},
+{ title:"その他", tags:["【逆ドッキリ】","【🗿】"]}
+];
+
+const tagArea=document.getElementById("tagArea");
+const checkedTags = new Set();
+
+/* ===== 保存処理 ===== */
+function saveState(){
+  localStorage.setItem("mainText", document.getElementById("mainText").value);
+  localStorage.setItem("checkedTags", JSON.stringify([...checkedTags]));
+  localStorage.setItem("expertMode", document.getElementById("expertMode").checked);
+}
+
+/* ===== 復元処理 ===== */
+function loadState(){
+  const savedText = localStorage.getItem("mainText");
+  if(savedText !== null){
+    document.getElementById("mainText").value = savedText;
+  }
+
+  const savedTags = localStorage.getItem("checkedTags");
+  if(savedTags){
+    JSON.parse(savedTags).forEach(tag => checkedTags.add(tag));
+  }
+
+  const savedExpert = localStorage.getItem("expertMode");
+  if(savedExpert !== null){
+    document.getElementById("expertMode").checked = (savedExpert === "true");
+  }
+}
+
+function renderTags(){
+  tagArea.innerHTML="";
+  const expert=document.getElementById("expertMode").checked;
+
+  TAG_ROWS.forEach(category=>{
+    const fieldset=document.createElement("fieldset");
+    const legend=document.createElement("legend");
+    legend.textContent=category.title;
+    fieldset.appendChild(legend);
+
+    category.tags.forEach(tag=>{
+      const label=document.createElement("label");
+
+      if(RED_TAGS.has(tag)){
+        label.classList.add("redTag");
+        if(!expert) label.classList.add("hiddenTag");
+      }
+
+      const checkbox=document.createElement("input");
+      checkbox.type="checkbox";
+      checkbox.className="tagCheck";
+      checkbox.value=tag;
+
+      if(checkedTags.has(tag)){
+        checkbox.checked=true;
+      }
+
+      checkbox.addEventListener("change",()=>{
+        if(checkbox.checked){
+          checkedTags.add(tag);
+        }else{
+          checkedTags.delete(tag);
+        }
+        saveState();
+      });
+
+      label.appendChild(checkbox);
+      label.appendChild(document.createTextNode(" "+tag));
+      fieldset.appendChild(label);
+    });
+
+    tagArea.appendChild(fieldset);
+  });
+
+  saveState();
+}
+
+document.getElementById("expertMode")
+.addEventListener("change",()=>{
+  renderTags();
+  saveState();
+});
+
+document.getElementById("mainText")
+.addEventListener("input",saveState);
+
+/* 初期化 */
+loadState();
+renderTags();
+
+/* ===== 生成 ===== */
+function generate(){
+  const result=document.getElementById("result");
+  result.innerHTML="";
+
+  const text=document.getElementById("mainText").value.trim();
+  const checked=[...checkedTags];
+
+  if(text){
+  const span=document.createElement("span");
+  span.textContent = text + "\n"; // ← 本文の後に改行を1つ追加
+  span.classList.add("mainTextSpan");
+  result.appendChild(span);
+}
+
+  // タグ順序を指定された順番で生成
+  const tagOrder = [
+    "【自動発動】", "【必須発動】", "【任意発動】", "【トリガー発動】", "【陣営別発動】", "【感受性発動】",
+    "【生存時発動】", "【死亡時発動】", "【蘇生時発動】", "【感受性発動不可】", "【永久発動】", "【投票依存系】",
+    "【昼時間発動可能】", "【夜時間発動可能】", "【1回きり】", "【2回きり】", "【3回きり】", "【回数制限あり】", "【強制使用可能系】",
+    "【殺害系】", "【仮殺害系】", "【複数回殺害系】", "【抹消系】", "【道連れ系】", "【自滅系】", "【失踪系】", "【蘇生系】",
+    "【自己蘇生系】", "【補助系】", "【ジャッジメント系】", "【感受性弱体化】", "【護衛系】", "【貫通系】", "【妨害系】",
+    "【口封系】", "【干渉系】", "【確率系】", "【確率操作系】", "【身代わり系】", "【回避系】", "【死亡耐性系】",
+    "【無効化系】", "【カウンター系】", "【殺害軌道変更系】", "【反転系】", "【蘇生不可】", "【サーチ系】", "【アビ能力把握系】",
+    "【役職把握系】", "【陣営把握系】", "【アビ能力発動確認系】", "【アビ能力感知系】", "【ログ表示系】", "【通達系】",
+    "【状態異常付与系】", "【状態異常回復系】", "【ルール追加系】", "【ルール除外系】", "【ルール無視系】", "【領域展開】", "【アビ能力追加付与系】",
+    "【アビ能力変化系】", "【隠しアビ能力追加付与系】", "【隠しアビ能力変化系】", "【NEOシークレットアビ能力追加付与系】",
+    "【NEOシークレットアビ能力変化系】", "【alphaアビ能力追加付与系】", "【alphaアビ能力変化系】", "【サブアビ能力付与系】",
+    "【Perk ticket】", "【EXTRΛBILITY GATE】", "【奪取系】", "【剥奪系】", "【サブアビ能力】", "【EXTRΛBILITY】",
+    "【イベント発生系】", "【隠しイベント発生系】", "【時間関与系】", "【CT系】", "【なりきり系】", "【ネタ系】", "【実験体】",
+    "【恋愛系】", "【加護系】", "【模倣者】", "【X00】", "【優先度最上位】", "【優先度上位】", "【優先度高】", "【逆ドッキリ】", "【🗿】"
+  ];
+
+  tagOrder.forEach(tag => {
+    if(checkedTags.has(tag)) {
+      const span = document.createElement("span");
+      span.textContent = tag;
+      result.appendChild(span);
+    }
+  });
+}
+
+function copyResult(){
+  const spans=document.querySelectorAll("#result span");
+  let text="";
+
+  spans.forEach((s, index)=>{
+    if(index === 0){
+      // 本文はそのまま（改行含む）
+      text += s.textContent;
+    }else{
+      // タグは本文の後ろに連結（改行は入れない）
+      text += s.textContent;
+    }
+  });
+
+  if(!text) return alert("結果がありません");
+
+  navigator.clipboard.writeText(text);
+  alert("コピーしました");
+}
+
+</script>
+</body>
+</html>
