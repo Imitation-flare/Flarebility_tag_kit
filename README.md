@@ -7,6 +7,7 @@
 これは製作者自身がタグ多すぎてタグの順番がバラバラになるかrチャッピーに頼んで作ってもらったやつです</br>
 チェックボックス押すとタグが順番通りに追加されますです</br>
 まじでこれ作ってよかったなって思ってるよ！</br>
+リンク:https://imitation-flare.github.io/Flarebility_tag_kit</br>
 </br>
 たぐつーるのはいけいのそーす→　https://commons.nicovideo.jp/works/nc175412 </br>
 </br>
